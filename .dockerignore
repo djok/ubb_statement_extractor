@@ -1,0 +1,47 @@
+# Git
+.git/
+.gitignore
+
+# Environment
+.env
+.env.*
+
+# Secrets
+secrets/
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Data files
+data/
+source/
+output/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs
+README.md
+*.md
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore

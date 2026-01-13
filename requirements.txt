@@ -1,0 +1,27 @@
+pdfplumber>=0.10.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+pyzipper>=0.3.6
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# BigQuery Integration
+google-cloud-bigquery>=3.11.0
+google-auth>=2.22.0
+db-dtypes>=1.2.0
+
+# Cloud Storage
+google-cloud-storage>=2.14.0
+
+# Monitoring Dashboard
+streamlit[auth]>=1.42.0
+pandas>=2.0.0
+plotly>=5.18.0
+bcrypt>=4.0.0
+requests>=2.31.0
+
+# Security
+slowapi>=0.1.9
+PyJWT>=2.8.0
+authlib>=1.3.0
+httpx>=0.27.0

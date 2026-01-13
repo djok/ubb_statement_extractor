@@ -1,0 +1,121 @@
+services:
+  # FastAPI application for receiving emails
+  api:
+    build: .
+    # Only expose to internal network - cloudflared handles external access
+    expose:
+      - "8000"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+      - ./secrets:/app/secrets:ro
+    environment:
+      - PDF_PASSWORD=${PDF_PASSWORD}
+      - POSTAL_WEBHOOK_SECRET=${POSTAL_WEBHOOK_SECRET}
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/app/secrets/gcp-credentials.json}
+      - GCS_BUCKET=${GCS_BUCKET:-ubb-statements}
+      # Zitadel OAuth2 for API JWT validation
+      - ZITADEL_ISSUER=${ZITADEL_ISSUER}
+      - ZITADEL_CLIENT_ID=${ZITADEL_CLIENT_ID}
+    command: ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # Cloudflare Tunnel for HTTPS access
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # Monitoring dashboard (Streamlit)
+  monitoring:
+    build: .
+    # Only expose to internal network - access via tunnel or localhost
+    expose:
+      - "8501"
+    volumes:
+      - ./data:/app/data:ro
+      - ./secrets:/app/secrets:ro
+      - ./.streamlit:/app/.streamlit:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/app/secrets/gcp-credentials.json}
+      - GCS_BUCKET=${GCS_BUCKET:-ubb-statements}
+      # Zitadel OAuth2 for Streamlit
+      - ZITADEL_ISSUER=${ZITADEL_ISSUER}
+      - ZITADEL_WEB_CLIENT_ID=${ZITADEL_WEB_CLIENT_ID}
+      - ZITADEL_REDIRECT_URI=${ZITADEL_REDIRECT_URI}
+    command: ["streamlit", "run", "src/monitoring/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # Cloudflare Tunnel for monitoring dashboard
+  cloudflared-monitoring:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${MONITORING_TUNNEL_TOKEN}
+    depends_on:
+      - monitoring
+    restart: unless-stopped
+    profiles: ["monitoring-tunnel"]
+    networks:
+      - internal
+
+  # CLI extractor for manual use
+  extractor:
+    build: .
+    volumes:
+      - ./source:/app/source:ro
+      - ./output:/app/output
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+      - ./secrets:/app/secrets:ro
+    environment:
+      - PDF_PASSWORD=${PDF_PASSWORD}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/app/secrets/gcp-credentials.json}
+      - GCS_BUCKET=${GCS_BUCKET:-ubb-statements}
+    working_dir: /app
+    profiles: ["cli"]
+
+  # Re-import existing JSON files to BigQuery
+  reimport:
+    build: .
+    volumes:
+      - ./data:/app/data:ro
+      - ./secrets:/app/secrets:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/app/secrets/gcp-credentials.json}
+    working_dir: /app
+    command: ["python", "-m", "src.reimport", "--setup", "/app/data/json"]
+    profiles: ["reimport"]
+
+  # Batch import ZIP files (extract + parse + BigQuery)
+  batch-import:
+    build: .
+    volumes:
+      - ./data:/app/data
+      - ./secrets:/app/secrets:ro
+      - ./.env:/app/.env:ro
+    environment:
+      - PDF_PASSWORD=${PDF_PASSWORD}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/app/secrets/gcp-credentials.json}
+      - GCS_BUCKET=${GCS_BUCKET:-ubb-statements}
+    working_dir: /app
+    command: ["python", "-m", "src.batch_import", "--setup", "/app/data/zip"]
+    profiles: ["batch-import"]
+
+# Network configuration for security isolation
+networks:
+  internal:
+    driver: bridge
+    # Services are only accessible within this network
+    # External access is via Cloudflare Tunnel only

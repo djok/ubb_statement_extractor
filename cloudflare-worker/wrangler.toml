@@ -1,0 +1,28 @@
+# Cloudflare Worker Configuration
+# https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "ubb-email-forwarder"
+main = "email-forwarder.js"
+compatibility_date = "2024-01-01"
+
+# Email Workers binding - required for receiving emails
+# https://developers.cloudflare.com/email-routing/email-workers/
+[[send_email]]
+name = "EMAIL"
+
+# Email routing - this Worker will handle incoming emails
+# You need to configure Email Routes in Cloudflare Dashboard
+# to forward emails to this Worker
+
+[vars]
+# Set these in Cloudflare Dashboard > Workers > Settings > Variables
+# WEBHOOK_URL = "https://your-domain.com/webhook/cloudflare"
+# WEBHOOK_SECRET = "your-secret-here"
+# FORWARD_TO = "your-verified-email@example.com"  # Optional: forward emails after processing
+
+# Uncomment if you need to use environment-specific variables
+# [env.production.vars]
+# WEBHOOK_URL = "https://production.example.com/webhook/cloudflare"
+
+# [env.staging.vars]
+# WEBHOOK_URL = "https://staging.example.com/webhook/cloudflare"
